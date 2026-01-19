@@ -22,13 +22,16 @@ from opendbc.car.hyundai.values import Buttons
 from openpilot.common.params import Params
 from openpilot.selfdrive.controls.neokii.navi_controller import SpeedLimiter
 from openpilot.selfdrive.controls.ntune import ntune_common_get, ntune_scc_get
-
+from selfdrive.modeld.constants import ModelConstants
 
 TRAJECTORY_SIZE = 33
 SYNC_MARGIN = 3.
 CREEP_SPEED = 2.3
 
+CURVE_MIN_LOOKAHEAD_T = 1.0
+CURVE_MAX_LOOKAHEAD_T = 5.0
 
+CURVE_VALID_IDXS = [i for i, t in enumerate(ModelConstants.T_IDXS) if CURVE_MIN_LOOKAHEAD_T <= t <= CURVE_MAX_LOOKAHEAD_T]
 MIN_CURVE_SPEED = 32. * CV.KPH_TO_MS
 
 EventName = log.OnroadEvent.EventName
@@ -231,10 +234,13 @@ class SpeedController:
         dy = np.gradient(y, x)
         d2y = np.gradient(dy, x)
         curv = d2y / (1 + dy ** 2) ** 1.5
-        curv = curv[-10:]
+
+        if CURVE_VALID_IDXS:
+          curv = curv[CURVE_VALID_IDXS[0]:CURVE_VALID_IDXS[-1] + 1]
+
         a_y_max = 2.975 - v_ego * 0.0375  # ~1.85 @ 75mph, ~2.6 @ 25mph
         v_curvature = np.sqrt(a_y_max / np.clip(np.abs(curv), 1e-4, None))
-        model_speed = np.mean(v_curvature) * 0.85
+        model_speed = np.mean(v_curvature) * 0.8
 
         if model_speed < v_ego:
           self.curve_speed_ms = float(max(model_speed, MIN_CURVE_SPEED))
