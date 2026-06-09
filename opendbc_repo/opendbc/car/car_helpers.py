@@ -158,7 +158,15 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
 
   if candidate is None:
     carlog.error({"event": "car doesn't match any fingerprints", "fingerprints": repr(fingerprints)})
-    candidate = "MOCK"
+
+    # NEXOdriveX: force Hyundai Nexo recognition when automatic CAN/FW fingerprinting fails.
+    # This is for the NEXO-only branch. It keeps the captured fingerprints in /data/log/car_fingerprints
+    # so the real fingerprint can still be reviewed later.
+    from opendbc.car.hyundai.values import CAR as HYUNDAI
+    candidate = HYUNDAI.HYUNDAI_NEXO
+    source = CarParams.FingerprintSource.fixed
+    exact_match = False
+    carlog.error({"event": "NEXO force fingerprint fallback", "candidate": str(candidate)})
 
   selected_car = Params().get("SelectedCar_v2")
   if selected_car:
