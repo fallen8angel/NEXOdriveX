@@ -38,7 +38,10 @@ class CarState(CarStateBase):
                           "GEAR_ALT" if CP.flags & HyundaiFlags.CANFD_ALT_GEARS else \
                           "GEAR_ALT_2" if CP.flags & HyundaiFlags.CANFD_ALT_GEARS_2 else \
                           "GEAR_SHIFTER"
-    if CP.flags & HyundaiFlags.CANFD:
+    if CP.carFingerprint == CAR.HYUNDAI_NEXO:
+      # NEXO/Carrot learned: NEXO is FCEV, but gear is read from ELECT_GEAR raw values.
+      self.shifter_values = can_define.dv["ELECT_GEAR"]["Elect_Gear_Shifter"]
+    elif CP.flags & HyundaiFlags.CANFD:
       self.shifter_values = can_define.dv[self.gear_msg_canfd]["GEAR"]
     elif CP.flags & (HyundaiFlags.HYBRID | HyundaiFlags.EV):
       self.shifter_values = can_define.dv["ELECT_GEAR"]["Elect_Gear_Shifter"]
