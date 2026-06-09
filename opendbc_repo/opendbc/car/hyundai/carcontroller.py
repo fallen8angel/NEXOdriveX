@@ -10,7 +10,8 @@ from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.interfaces import ACCEL_MAX, ACCEL_MIN
 from openpilot.selfdrive.controls.neokii.cruise_state_manager import CruiseStateManager, is_radar_disabler
 from openpilot.selfdrive.controls.neokii.navi_controller import SpeedLimiter
-from openpilot.selfdrive.controls.neokii.speed_controller import CREEP_SPEED
+# Avoid circular import during car fingerprinting
+CREEP_SPEED = 2.3
 from openpilot.common.params import Params
 
 
