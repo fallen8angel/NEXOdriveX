@@ -4,7 +4,7 @@ from opendbc.can import CANParser
 from opendbc.car import Bus, structs
 from opendbc.car.interfaces import RadarInterfaceBase
 from opendbc.car.hyundai.values import DBC
-from opendbc_repo.opendbc.car.hyundai.values import HyundaiFlags
+from opendbc.car.hyundai.values import HyundaiFlags
 from openpilot.selfdrive.controls.neokii.cruise_state_manager import is_radar_disabler
 from common.numpy_fast import clip
 

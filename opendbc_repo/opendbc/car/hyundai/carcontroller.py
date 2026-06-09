@@ -10,6 +10,7 @@ from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.interfaces import ACCEL_MAX, ACCEL_MIN
 from openpilot.selfdrive.controls.neokii.cruise_state_manager import CruiseStateManager, is_radar_disabler
 from openpilot.selfdrive.controls.neokii.navi_controller import SpeedLimiter
+from openpilot.selfdrive.controls.neokii.speed_controller import CREEP_SPEED
 from openpilot.common.params import Params
 
 
@@ -62,6 +63,7 @@ class CarController(CarControllerBase):
 
     self.param = Params()
     self.ldws_opt = self.param.get_bool('IsLdwsCar')
+    self.e2e_long = self.param.get_bool('ExperimentalMode')
 
     self.stock_accel_weight = 0.0
 
@@ -154,6 +156,12 @@ class CarController(CarControllerBase):
     if self.frame % 2 == 0 and self.CP.openpilotLongitudinalControl:
       # TODO: unclear if this is needed
       jerk = 3.0 if actuators.longControlState == LongCtrlState.pid else 1.0
+
+      if CC.longActive:
+        start_boost = float(np.interp(CS.out.vEgo, [CREEP_SPEED, 1.6 * CREEP_SPEED], [0.2 if self.e2e_long else 0.5, 0.0]))
+        is_accelerating = float(np.interp(accel, [0.0, 0.2], [0.0, 1.0]))
+        boost = start_boost * is_accelerating
+        accel += boost
 
       stock_cam = False
       if self.CP.sccBus == 2:

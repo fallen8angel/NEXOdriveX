@@ -13,6 +13,7 @@ from opendbc.car.hyundai.values import HyundaiExFlags
 
 
 ButtonType = structs.CarState.ButtonEvent.Type
+GearShifter = structs.CarState.GearShifter
 
 PREV_BUTTON_SAMPLES = 8
 CLUSTER_SAMPLE_RATE = 20  # frames
@@ -71,6 +72,7 @@ class CarState(CarStateBase):
     self.lfa_btn = 0
     self.lfa_enabled = False
     self.canfd_buttons = None
+    self.gear_shifter = GearShifter.park
 
   def recent_button_interaction(self) -> bool:
     # On some newer model years, the CANCEL button acts as a pause/resume button based on the PCM state
@@ -152,7 +154,10 @@ class CarState(CarStateBase):
 
     # TODO: Find brake pressure
     ret.brake = 0
-    ret.brakePressed = cp.vl["TCS13"]["DriverOverride"] == 2  # 2 includes regen braking by user on HEV/EV
+    if "DriverBraking" in cp.vl["TCS13"]:
+      ret.brakePressed = cp.vl["TCS13"]["DriverBraking"] != 0
+    else:
+      ret.brakePressed = cp.vl["TCS13"]["DriverOverride"] == 2  # fallback for DBC without DriverBraking
     ret.brakeHoldActive = cp.vl["TCS15"]["AVH_LAMP"] == 2  # 0 OFF, 1 ERROR, 2 ACTIVE, 3 READY
     ret.parkingBrake = cp.vl["TCS13"]["PBRAKE_ACT"] == 1
     ret.espDisabled = cp.vl["TCS11"]["TCS_PAS"] == 1
@@ -169,20 +174,40 @@ class CarState(CarStateBase):
     else:
       ret.gasPressed = bool(cp.vl["EMS16"]["CF_Ems_AclAct"])
 
-    # Gear Selection via Cluster - For those Kia/Hyundai which are not fully discovered, we can use the Cluster Indicator for Gear Selection,
-    # as this seems to be standard over all cars, but is not the preferred method.
-    if self.CP.flags & (HyundaiFlags.HYBRID | HyundaiFlags.EV):
+    # NEXO AI2-style raw ELECT_GEAR decoding.
+    # This avoids depending on DBC enum names and keeps the last known valid gear.
+    if self.CP.carFingerprint == CAR.HYUNDAI_NEXO:
       gear = cp.vl["ELECT_GEAR"]["Elect_Gear_Shifter"]
-    elif self.CP.flags & HyundaiFlags.FCEV:
-      gear = cp.vl["EMS20"]["HYDROGEN_GEAR_SHIFTER"]
-    elif self.CP.flags & HyundaiFlags.CLUSTER_GEARS:
-      gear = cp.vl["CLU15"]["CF_Clu_Gear"]
-    elif self.CP.flags & HyundaiFlags.TCU_GEARS:
-      gear = cp.vl["TCU12"]["CUR_GR"]
-    else:
-      gear = cp.vl["LVR12"]["CF_Lvr_Gear"]
+      gear_shifter = GearShifter.unknown
 
-    ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(gear))
+      if gear == 1546:
+        gear_shifter = GearShifter.drive
+      elif gear == 2314:
+        gear_shifter = GearShifter.neutral
+      elif gear == 2569:
+        gear_shifter = GearShifter.park
+      elif gear == 2566:
+        gear_shifter = GearShifter.reverse
+
+      if gear_shifter != GearShifter.unknown and self.gear_shifter != gear_shifter:
+        self.gear_shifter = gear_shifter
+
+      ret.gearShifter = self.gear_shifter
+    else:
+      # Gear Selection via Cluster - For those Kia/Hyundai which are not fully discovered, we can use the Cluster Indicator for Gear Selection,
+      # as this seems to be standard over all cars, but is not the preferred method.
+      if self.CP.flags & (HyundaiFlags.HYBRID | HyundaiFlags.EV):
+        gear = cp.vl["ELECT_GEAR"]["Elect_Gear_Shifter"]
+      elif self.CP.flags & HyundaiFlags.FCEV:
+        gear = cp.vl["EMS20"]["HYDROGEN_GEAR_SHIFTER"]
+      elif self.CP.flags & HyundaiFlags.CLUSTER_GEARS:
+        gear = cp.vl["CLU15"]["CF_Clu_Gear"]
+      elif self.CP.flags & HyundaiFlags.TCU_GEARS:
+        gear = cp.vl["TCU12"]["CUR_GR"]
+      else:
+        gear = cp.vl["LVR12"]["CF_Lvr_Gear"]
+
+      ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(gear))
 
     if not self.CP.openpilotLongitudinalControl or self.CP.sccBus == 2:
       aeb_src = "FCA11" if self.CP.flags & HyundaiFlags.USE_FCA.value else "SCC12"

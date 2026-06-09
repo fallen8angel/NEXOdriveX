@@ -1357,7 +1357,7 @@ FW_VERSIONS = {
       b'\xf1\x00US4_ RDR -----      1.00 1.00 99110-CG000         ',
     ],
   },
-  CAR.HYUNDAI_NEXO_1ST_GEN: {
+  CAR.HYUNDAI_NEXO: {
     (Ecu.abs, 0x7d1, None): [
       b'\xf1\x00FE IEB \x01 312 \x11\x13 58520-M5000',
     ],

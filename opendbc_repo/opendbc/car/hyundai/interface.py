@@ -1,4 +1,4 @@
-from opendbc_repo.opendbc.car.hyundai.values import CAMERA_SCC_CAR
+from opendbc.car.hyundai.values import CAMERA_SCC_CAR
 from opendbc.car import Bus, get_safety_config, structs, uds
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, \
@@ -7,6 +7,7 @@ from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, \
 from opendbc.car.hyundai.radar_interface import RADAR_START_ADDR
 from opendbc.car.interfaces import CarInterfaceBase, ACCEL_MIN, ACCEL_MAX
 from opendbc.car.disable_ecu import disable_ecu
+from opendbc.car.hyundai.cruise_helper import enable_radar_tracks
 from opendbc.car.hyundai.carcontroller import CarController
 from opendbc.car.hyundai.carstate import CarState
 from opendbc.car.hyundai.radar_interface import RadarInterface
@@ -86,32 +87,34 @@ class CarInterface(CarInterfaceBase):
           ret.flags |= HyundaiFlags.CANFD_ALT_GEARS.value
 
     ret.radarUnavailable = RADAR_START_ADDR not in fingerprint[1] or Bus.radar not in DBC[ret.carFingerprint]
-    ret.steerActuatorDelay = 0.2  # Default delay
+    ret.steerActuatorDelay = 0.1  # AI2-style steering actuator delay
     ret.steerLimitTimer = 0.4
     CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
 
     # *** longitudinal control ***
+    # AI2-style NEXO longitudinal tuning.
     if ret.flags & HyundaiFlags.CANFD:
       ret.longitudinalTuning.kpBP = [0.]
-      ret.longitudinalTuning.kpV = [0.8]
-      ret.longitudinalTuning.kf = 0.5
+      ret.longitudinalTuning.kpV = [0.1]
+      ret.longitudinalTuning.kiV = [0.0]
       ret.alphaLongitudinalAvailable = candidate not in (CANFD_UNSUPPORTED_LONGITUDINAL_CAR | CANFD_RADAR_SCC_CAR)
     else:
-      ret.longitudinalTuning.kpBP = [0.]
-      ret.longitudinalTuning.kpV = [0.9]
-      ret.longitudinalTuning.kf = 0.5
+      ret.longitudinalTuning.kpBP = [0., 5. * CV.KPH_TO_MS, 10. * CV.KPH_TO_MS, 30. * CV.KPH_TO_MS, 130. * CV.KPH_TO_MS]
+      ret.longitudinalTuning.kpV = [1.2, 1.05, 1.0, 0.92, 0.55]
+      ret.longitudinalTuning.kiBP = [0., 130. * CV.KPH_TO_MS]
+      ret.longitudinalTuning.kiV = [0.2, 0.1]
       ret.alphaLongitudinalAvailable = True #candidate not in (LEGACY_SAFETY_MODE_CAR)
 
     ret.openpilotLongitudinalControl = alpha_long and ret.alphaLongitudinalAvailable
     ret.pcmCruise = not ret.openpilotLongitudinalControl
 
-    ret.startingState = True
+    ret.startingState = False
     ret.stoppingDecelRate = 0.3
-    ret.steerActuatorDelay = 0.2
+    ret.steerActuatorDelay = 0.1
     ret.steerLimitTimer = 2.0
 
     ret.vEgoStarting = 0.1
-    ret.vEgoStopping = 0.1
+    ret.vEgoStopping = 0.2
     ret.startAccel = 1.0
     ret.longitudinalActuatorDelay = 0.5
 
@@ -181,6 +184,11 @@ class CarInterface(CarInterfaceBase):
       if 1348 in fingerprint[0]:
         ret.exFlags |= HyundaiExFlags.NAVI.value
 
+      # NEXO AI2: radar tracks are enabled during init, so keep radar parsing available
+      # even when 0x500 tracks are not visible during initial fingerprinting.
+      if candidate == CAR.HYUNDAI_NEXO and ret.openpilotLongitudinalControl and ret.sccBus == 0:
+        ret.radarUnavailable = False
+
       if not ret.openpilotLongitudinalControl:
         ret.radarUnavailable = ret.sccBus == -1
 
@@ -233,6 +241,7 @@ class CarInterface(CarInterfaceBase):
       if CP.flags & HyundaiFlags.CANFD_LKA_STEERING.value:
         addr, bus = 0x730, CanBus(CP).ECAN
       disable_ecu(can_recv, can_send, bus=bus, addr=addr, com_cont_req=communication_control)
+      enable_radar_tracks(CP, can_recv, can_send)
 
     # for blinkers
     if CP.flags & HyundaiFlags.ENABLE_BLINKERS:

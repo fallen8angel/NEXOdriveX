@@ -116,6 +116,9 @@ class CruiseStateManager:
       CS.cruiseState.speed = self.speed
       CS.cruiseState.leadDistanceBars = self.leadDistanceBars
 
+    if self.enabled: # AI2 med-mode style longitudinal start
+      CS.cruiseState.enabled = self.enabled
+
   def update_buttons(self):
     if self.button_events is None:
       return ButtonType.unknown
@@ -177,18 +180,12 @@ class CruiseStateManager:
           self.enabled = True
           v_cruise_kph = clip(round(self.speed * CV.MS_TO_KPH, 1), V_CRUISE_ENABLE_MIN, V_CRUISE_MAX)
           v_cruise_kph = clip(v_cruise_kph, round(CS.vEgoCluster * CV.MS_TO_KPH, 1), V_CRUISE_MAX)
-          road_limit_speed = SpeedLimiter.instance().get_road_limit_speed()
-          if V_CRUISE_ENABLE_MIN < road_limit_speed < V_CRUISE_MAX:
-            v_cruise_kph = max(v_cruise_kph, road_limit_speed)
 
-    if btn == ButtonType.gapAdjustCruise:
-      if not self.btn_long_pressed:
-        self.leadDistanceBars -= 1
-        if self.leadDistanceBars < 1:
-          self.leadDistanceBars = 4
-        self.params.put_nonblocking("SccGapAdjust", str(self.leadDistanceBars))
-      else:
-        self.params.put_bool("ExperimentalMode", not self.params.get_bool("ExperimentalMode"))
+    if btn == ButtonType.gapAdjustCruise and not self.btn_long_pressed:
+      self.leadDistanceBars -= 1
+      if self.leadDistanceBars < 1:
+        self.leadDistanceBars = 4
+      self.params.put_nonblocking("SccGapAdjust", str(self.leadDistanceBars))
 
     if btn == ButtonType.cancel:
       self.enabled = False
