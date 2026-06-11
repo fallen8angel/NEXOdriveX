@@ -605,7 +605,7 @@ class CAR(Platforms):
     flags=HyundaiFlags.HYBRID | HyundaiFlags.LEGACY,
   )
   HYUNDAI_NEXO = HyundaiPlatformConfig(
-    [HyundaiCarDocs("Hyundai Nexo", "All", car_parts=CarParts.common([CarHarness.hyundai_h]))],
+    [HyundaiCarDocs("Hyundai NEXO", "All", car_parts=CarParts.common([CarHarness.hyundai_h]))],
     CarSpecs(mass=1885, wheelbase=2.79, steerRatio=14.19, tireStiffnessFactor=0.385),
     flags=HyundaiFlags.FCEV | HyundaiFlags.MANDO_RADAR,
   )
