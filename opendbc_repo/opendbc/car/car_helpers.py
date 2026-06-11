@@ -84,6 +84,18 @@ def can_fingerprint(can_recv: CanRecvCallable) -> tuple[str | None, dict[int, di
   return car_fingerprint, finger
 
 
+def _interface_key(candidate):
+  if candidate in interfaces:
+    return candidate
+  value = getattr(candidate, "value", None)
+  if value in interfaces:
+    return value
+  text = str(candidate)
+  if text in interfaces:
+    return text
+  return candidate
+
+
 # **** for use live only ****
 def fingerprint(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multiplexing: ObdCallback, num_pandas: int,
                 cached_params: CarParamsT | None) -> tuple[str | None, dict, str, list[CarParams.CarFw], CarParams.FingerprintSource, bool]:
@@ -157,6 +169,8 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(can_recv, can_send, set_obd_multiplexing, num_pandas, cached_params)
 
   selected_car = Params().get("SelectedCar_v2") or Params().get("CarSelected3")
+  if isinstance(selected_car, bytes):
+    selected_car = selected_car.decode("utf-8", errors="ignore")
 
   def find_platform_from_hyundai(name: str):
     from opendbc.car.hyundai.values import CAR as HYUNDAI
@@ -201,7 +215,8 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
   Params().put("CarFingerprints", json.dumps(fingerprints))
 
   car_fingerprints = {
-    'candidate': candidate,
+    'candidate': str(candidate),
+    'interface_key': str(_interface_key(candidate)),
     'fingerprints': fingerprints
   }
 
@@ -212,18 +227,18 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
   except:
     pass
 
-  CarInterface = interfaces[candidate]
+  CarInterface = interfaces[_interface_key(candidate)]
   CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, alpha_long_allowed, is_release, docs=False)
   CP.carVin = vin
   CP.carFw = car_fw
   CP.fingerprintSource = source
   CP.fuzzyFingerprint = not exact_match
 
-  return interfaces[CP.carFingerprint](CP)
+  return interfaces[_interface_key(CP.carFingerprint)](CP)
 
 
 def get_demo_car_params():
   platform = MOCK.MOCK
-  CarInterface = interfaces[platform]
+  CarInterface = interfaces[_interface_key(platform)]
   CP = CarInterface.get_non_essential_params(platform)
   return CP
