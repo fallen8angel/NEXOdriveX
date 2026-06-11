@@ -212,6 +212,8 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
     carlog.error({"event": "NEXO force fingerprint fallback always", "candidate": str(candidate)})
 
   print('candidate !!!!!!!!!', candidate)
+  Params().put("CarName", str(candidate))
+  Params().put("FingerPrints", str(fingerprints))
   Params().put("CarFingerprints", json.dumps(fingerprints))
 
   car_fingerprints = {
@@ -221,11 +223,12 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
   }
 
   try:
+    os.makedirs('/data/log', exist_ok=True)
     with open('/data/log/car_fingerprints', 'w') as f:
       now = datetime.datetime.now()
       f.write(now.strftime('[%Y-%m-%d %H:%M:%S]') + "\n\n" + json.dumps(car_fingerprints, indent=2))
-  except:
-    pass
+  except Exception as e:
+    carlog.error({"event": "failed to write car_fingerprints", "error": str(e)})
 
   CarInterface = interfaces[_interface_key(candidate)]
   CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, alpha_long_allowed, is_release, docs=False)
@@ -233,6 +236,8 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
   CP.carFw = car_fw
   CP.fingerprintSource = source
   CP.fuzzyFingerprint = not exact_match
+
+  Params().put("CarName", str(CP.carFingerprint))
 
   return interfaces[_interface_key(CP.carFingerprint)](CP)
 
