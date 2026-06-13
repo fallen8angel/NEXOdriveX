@@ -96,6 +96,24 @@ def _interface_key(candidate):
   return candidate
 
 
+def _params_get_optional(params: Params, key: str):
+  try:
+    return params.get(key)
+  except Exception as e:
+    # Some forks do not register legacy/custom Param keys such as CarSelected3.
+    # Treat missing optional keys as unset instead of crashing card before CarParams is written.
+    carlog.warning({"event": "optional param unavailable", "key": key, "error": str(e)})
+    return None
+
+
+def _params_put_optional(params: Params, key: str, value: str) -> None:
+  try:
+    params.put(key, value)
+  except Exception as e:
+    # Debug-only Params may not exist in every fork. Do not let logging keys stop vehicle detection.
+    carlog.warning({"event": "optional param put unavailable", "key": key, "error": str(e)})
+
+
 # **** for use live only ****
 def fingerprint(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multiplexing: ObdCallback, num_pandas: int,
                 cached_params: CarParamsT | None) -> tuple[str | None, dict, str, list[CarParams.CarFw], CarParams.FingerprintSource, bool]:
@@ -168,7 +186,8 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
             is_release: bool, num_pandas: int = 1, cached_params: CarParamsT | None = None):
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(can_recv, can_send, set_obd_multiplexing, num_pandas, cached_params)
 
-  selected_car = Params().get("SelectedCar_v2") or Params().get("CarSelected3")
+  params = Params()
+  selected_car = _params_get_optional(params, "SelectedCar_v2") or _params_get_optional(params, "CarSelected3")
   if isinstance(selected_car, bytes):
     selected_car = selected_car.decode("utf-8", errors="ignore")
 
@@ -212,9 +231,9 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
     carlog.error({"event": "NEXO force fingerprint fallback always", "candidate": str(candidate)})
 
   print('candidate !!!!!!!!!', candidate)
-  Params().put("CarName", str(candidate))
-  Params().put("FingerPrints", str(fingerprints))
-  Params().put("CarFingerprints", json.dumps(fingerprints))
+  _params_put_optional(params, "CarName", str(candidate))
+  _params_put_optional(params, "FingerPrints", str(fingerprints))
+  _params_put_optional(params, "CarFingerprints", json.dumps(fingerprints))
 
   car_fingerprints = {
     'candidate': str(candidate),
@@ -237,7 +256,7 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
   CP.fingerprintSource = source
   CP.fuzzyFingerprint = not exact_match
 
-  Params().put("CarName", str(CP.carFingerprint))
+  _params_put_optional(params, "CarName", str(CP.carFingerprint))
 
   return interfaces[_interface_key(CP.carFingerprint)](CP)
 
