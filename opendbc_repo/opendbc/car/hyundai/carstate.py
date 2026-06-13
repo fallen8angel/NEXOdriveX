@@ -177,19 +177,19 @@ class CarState(CarStateBase):
     else:
       ret.gasPressed = bool(cp.vl["EMS16"]["CF_Ems_AclAct"])
 
-    # NEXO AI2-style raw ELECT_GEAR decoding.
-    # This avoids depending on DBC enum names and keeps the last known valid gear.
+    # NEXO FCEV gear decoding.
+    # Real NEXO gear is from EMS20.HYDROGEN_GEAR_SHIFTER.
     if self.CP.carFingerprint == CAR.HYUNDAI_NEXO:
-      gear = cp.vl["ELECT_GEAR"]["Elect_Gear_Shifter"]
+      gear = cp.vl["EMS20"]["HYDROGEN_GEAR_SHIFTER"]
       gear_shifter = GearShifter.unknown
 
-      if gear in (1546, 10, 10.0):
+      if gear in (5, 5.0):
         gear_shifter = GearShifter.drive
-      elif gear == 2314:
+      elif gear in (6, 6.0):
         gear_shifter = GearShifter.neutral
-      elif gear == 2569:
+      elif gear in (0, 0.0):
         gear_shifter = GearShifter.park
-      elif gear == 2566:
+      elif gear in (7, 7.0):
         gear_shifter = GearShifter.reverse
 
       if gear_shifter != GearShifter.unknown and self.gear_shifter != gear_shifter:
