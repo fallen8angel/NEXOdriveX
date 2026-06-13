@@ -189,7 +189,9 @@ class CruiseStateManager:
       self.params.put_nonblocking("SccGapAdjust", str(self.leadDistanceBars))
 
     if btn == ButtonType.cancel:
+      # NEXO: cancel should fully turn cruise off, not only pause control.
       self.enabled = False
+      self.available = False
 
     v_cruise_kph = clip(round(v_cruise_kph, 1), V_CRUISE_MIN_CRUISE_STATE, V_CRUISE_MAX)
     self.speed = v_cruise_kph * CV.KPH_TO_MS
