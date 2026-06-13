@@ -9,6 +9,7 @@ from openpilot.selfdrive.car.cruise import V_CRUISE_ENABLE_MIN, V_CRUISE_MAX
 from openpilot.selfdrive.controls.neokii.navi_controller import SpeedLimiter
 
 V_CRUISE_MIN_CRUISE_STATE = 10
+V_CRUISE_ENABLE_MIN = 10
 
 V_CRUISE_DELTA_MI = 5 * CV.MPH_TO_KPH
 V_CRUISE_DELTA_KM = 10
