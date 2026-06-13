@@ -183,7 +183,7 @@ class CarState(CarStateBase):
       gear = cp.vl["ELECT_GEAR"]["Elect_Gear_Shifter"]
       gear_shifter = GearShifter.unknown
 
-      if gear == 1546:
+      if gear in (1546, 10, 10.0):
         gear_shifter = GearShifter.drive
       elif gear == 2314:
         gear_shifter = GearShifter.neutral
