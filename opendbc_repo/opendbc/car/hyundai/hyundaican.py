@@ -187,7 +187,7 @@ def create_acc_commands(packer, enabled, accel, upper_jerk, idx, hud_control, se
       "CR_FCA_Alive": idx % 0xF,
       "PAINT1_Status": 1,
       "FCA_DrvSetStatus": 1,
-      "FCA_Status": 1,  # AEB disabled
+      "FCA_Status": 0,  # NEXO/AI2: keep FCA warning off
     }
     fca11_dat = packer.make_can_msg("FCA11", 0, fca11_values)[1]
     fca11_values["CR_FCA_ChkSum"] = hyundai_checksum(fca11_dat[:7])
@@ -206,12 +206,11 @@ def create_acc_opt(packer, CP):
   }
   commands.append(packer.make_can_msg("SCC13", 0, scc13_values))
 
-  # TODO: this needs to be detected and conditionally sent on unsupported long cars
-  # On Camera SCC cars, FCA12 is not disabled, so we forward stock FCA12 back to the car forward hooks
-  if not (CP.flags & HyundaiFlags.CAMERA_SCC):
+  use_fca = CP.flags & HyundaiFlags.USE_FCA
+  if use_fca:
     fca12_values = {
       "FCA_DrvSetState": 2,
-      "FCA_USM": 1, # AEB disabled
+      "FCA_USM": 0, # NEXO/AI2: keep FCA warning off
     }
     commands.append(packer.make_can_msg("FCA12", 0, fca12_values))
 
