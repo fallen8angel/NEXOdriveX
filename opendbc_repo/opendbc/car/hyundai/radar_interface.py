@@ -6,6 +6,7 @@ from opendbc.car.interfaces import RadarInterfaceBase
 from opendbc.car.hyundai.values import DBC
 from opendbc.car.hyundai.values import HyundaiFlags
 from openpilot.selfdrive.controls.neokii.cruise_state_manager import is_radar_disabler
+from openpilot.common.params import Params
 from common.numpy_fast import clip
 
 RADAR_START_ADDR = 0x500
@@ -14,9 +15,18 @@ RADAR_MSG_COUNT = 32
 # POC for parsing corner radars: https://github.com/commaai/openpilot/pull/24221/
 
 
+def use_nexo_radar_tracks(CP):
+  # Carrot/op_hyundai-style optional radar-track activation.
+  # NEXO has MANDO_RADAR DBC available, so allow manual radar-track parser
+  # with Params().put_bool("NewRadarInterface", True).
+  return is_radar_disabler(CP) or (
+    str(CP.carFingerprint).endswith("HYUNDAI_NEXO") and Params().get_bool("NewRadarInterface")
+  )
+
+
 def get_radar_can_parser(CP):
 
-  if CP.flags & HyundaiFlags.CANFD or is_radar_disabler(CP):
+  if CP.flags & HyundaiFlags.CANFD or use_nexo_radar_tracks(CP):
 
     if Bus.radar not in DBC[CP.carFingerprint]:
       return None
@@ -31,7 +41,7 @@ def get_radar_can_parser(CP):
 class RadarInterface(RadarInterfaceBase):
   def __init__(self, CP):
     super().__init__(CP)
-    self.new_radar = is_radar_disabler(CP)
+    self.new_radar = use_nexo_radar_tracks(CP)
     self.updated_messages = set()
     self.trigger_msg = 0x420 if not self.new_radar else RADAR_START_ADDR + RADAR_MSG_COUNT - 1
     self.track_id = 0
