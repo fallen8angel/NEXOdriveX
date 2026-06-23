@@ -108,13 +108,13 @@ class CarInterface(CarInterfaceBase):
     ret.openpilotLongitudinalControl = alpha_long and ret.alphaLongitudinalAvailable
     ret.pcmCruise = not ret.openpilotLongitudinalControl
 
-    ret.startingState = False
+    ret.startingState = True
     ret.stoppingDecelRate = 0.3
     ret.steerActuatorDelay = 0.1
     ret.steerLimitTimer = 2.0
 
-    ret.vEgoStarting = 0.1
-    ret.vEgoStopping = 0.2
+    ret.vEgoStarting = 0.3
+    ret.vEgoStopping = 0.3
     ret.startAccel = 1.0
     ret.longitudinalActuatorDelay = 0.5
 
@@ -259,37 +259,3 @@ class CarInterface(CarInterfaceBase):
     if CP.flags & HyundaiFlags.CANFD:
       return [16], [20]
     return [16, 20], [12, 14, 16, 18]
-
-  def create_buttons(self, button):
-    if self.CP.flags & HyundaiFlags.CANFD:
-      if self.CP.flags & HyundaiFlags.CANFD_ALT_BUTTONS:
-        return self.create_buttons_can_fd_alt(button)
-      return self.create_buttons_can_fd(button)
-    else:
-      return self.create_buttons_can(button)
-
-  def get_buttons_dict(self):
-    return BUTTONS_DICT
-
-  def create_buttons_can(self, button):
-    values = copy.copy(self.CS.clu11)
-    values["CF_Clu_CruiseSwState"] = button
-    values["CF_Clu_AliveCnt1"] = (values["CF_Clu_AliveCnt1"] + 1) % 0x10
-    return self.CC.packer.make_can_msg("CLU11", self.CP.sccBus, values)
-
-  def create_buttons_can_fd(self, button):
-    values = {
-      "COUNTER": self.CS.buttons_counter + 1,
-      "SET_ME_1": 1,
-      "CRUISE_BUTTONS": button,
-    }
-    bus = self.CC.CAN.ECAN if self.CP.flags & HyundaiFlags.CANFD_LKA_STEERING else self.CC.CAN.CAM
-    return self.CC.packer.make_can_msg("CRUISE_BUTTONS", bus, values)
-
-  def create_buttons_can_fd_alt(self, button):
-    values = copy.copy(self.CS.canfd_buttons)
-    values["CRUISE_BUTTONS"] = button
-    values["COUNTER"] = (values["COUNTER"] + 1) % 256
-    bus = self.CC.CAN.ECAN if self.CP.flags & HyundaiFlags.CANFD_LKA_STEERING else self.CC.CAN.CAM
-    return self.CC.packer.make_can_msg("CRUISE_BUTTONS_ALT", bus, values)
-
